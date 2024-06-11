@@ -13,7 +13,9 @@ class Train(models.Model):
     name = models.CharField(max_length=255)
     cargo_number = models.IntegerField()
     places_in_cargo = models.IntegerField()
-    train_type = models.ForeignKey(TrainType, on_delete=models.CASCADE)
+    train_type = models.ForeignKey(
+        TrainType, on_delete=models.CASCADE, related_name="trains"
+    )
 
     def __str__(self):
         return f"{self.name} (id: {self.id})"
@@ -29,9 +31,20 @@ class Station(models.Model):
 
 
 class Route(models.Model):
-    source = models.ForeignKey(Station, on_delete=models.CASCADE)
-    destination = models.ForeignKey(Station, on_delete=models.CASCADE)
+    source = models.ForeignKey(
+        Station, on_delete=models.CASCADE, related_name="routes_as_source"
+    )
+    destination = models.ForeignKey(
+        Station, on_delete=models.CASCADE, related_name="routes_as_destination"
+    )
     distance = models.IntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "destination"], name="unique_source_destination"
+            )
+        ]
 
     def __str__(self):
         return f"{self.source} - {self.destination}"
@@ -41,14 +54,22 @@ class Crew(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
 
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        verbose_name = "crew member"
+        verbose_name_plural = "crew members"
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
 
 class Trip(models.Model):
     name = models.CharField(max_length=255)
-    route = models.ForeignKey(Route, on_delete=models.CASCADE)
-    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name="trips")
+    train = models.ForeignKey(Train, on_delete=models.CASCADE, related_name="trips")
     departure_time = models.DateTimeField()
     arrival_time = models.DateTimeField()
     crew = models.ManyToManyField(Crew, related_name="trip")
@@ -60,7 +81,9 @@ class Trip(models.Model):
 
 class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, related_name="orders"
+    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -72,8 +95,8 @@ class Order(models.Model):
 class Ticket(models.Model):
     cargo = models.IntegerField()
     seat = models.IntegerField()
-    trip = models.ForeignKey(Trip, on_delete=models.CASCADE)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="tickets")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="tickets")
 
     class Meta:
         ordering = ("seat",)
